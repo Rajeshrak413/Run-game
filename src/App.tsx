@@ -21,7 +21,7 @@ type Color = typeof COLORS[number];
 interface Piece {
   id: number;
   color: Color;
-  position: number; // -1 for home, 0-51 for track, 52-57 for home stretch, 58 for finish
+  position: number; // -1 for home, 0-56 for path, 57 for finish
   isFinished: boolean;
 }
 
@@ -34,15 +34,39 @@ interface Player {
   avatar: string;
 }
 
-const START_POSITIONS: Record<Color, number> = {
-  red: 1,
-  green: 14,
-  yellow: 27,
-  blue: 40
+// Full board path coordinates (52 cells)
+const BOARD_PATH: [number, number][] = [
+  [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
+  [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6],
+  [0, 7], [0, 8],
+  [1, 8], [2, 8], [3, 8], [4, 8], [5, 8],
+  [6, 9], [6, 10], [6, 11], [6, 12], [6, 13], [6, 14],
+  [7, 14], [8, 14],
+  [8, 13], [8, 12], [8, 11], [8, 10], [8, 9],
+  [9, 8], [10, 8], [11, 8], [12, 8], [13, 8], [14, 8],
+  [14, 7], [14, 6],
+  [13, 6], [12, 6], [11, 6], [10, 6], [9, 6],
+  [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0],
+  [7, 0], [6, 0]
+];
+
+const START_INDEX: Record<Color, number> = {
+  red: 0,
+  green: 13,
+  yellow: 26,
+  blue: 39
 };
 
-// Safe spots on the 52-cell track
-const SAFE_SPOTS = [1, 9, 14, 22, 27, 35, 40, 48];
+const HOME_STRETCH: Record<Color, [number, number][]> = {
+  red: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],
+  green: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],
+  yellow: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]],
+  blue: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]]
+};
+
+const SAFE_SPOTS_COORDS: [number, number][] = [
+  [6, 1], [8, 2], [1, 6], [2, 8], [8, 13], [6, 12], [13, 8], [12, 6]
+];
 
 // --- Components ---
 
@@ -79,7 +103,7 @@ const Dice = ({ value, rolling, onClick, disabled }: { value: number; rolling: b
   );
 };
 
-const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll }: { player: Player; isActive: boolean; diceValue: number; isRolling: boolean; onRoll: () => void }) => {
+const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll, isLocalPlayer }: { player: Player; isActive: boolean; diceValue: number; isRolling: boolean; onRoll: () => void; isLocalPlayer: boolean }) => {
   return (
     <div className={cn("flex items-center gap-3", player.color === 'blue' || player.color === 'yellow' ? 'flex-row-reverse' : 'flex-row')}>
       <div className="relative">
@@ -101,13 +125,13 @@ const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll }: { play
         <div className="flex items-center gap-2">
           {player.color === 'blue' || player.color === 'yellow' ? (
             <>
-              <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive} />
+              <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
               <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[12px] border-r-white drop-shadow-sm" />
             </>
           ) : (
             <>
               <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[12px] border-l-white drop-shadow-sm" />
-              <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive} />
+              <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
             </>
           )}
         </div>
@@ -136,8 +160,39 @@ export default function App() {
   const [canRoll, setCanRoll] = useState(true);
   const [winner, setWinner] = useState<Color | null>(null);
   const [copied, setCopied] = useState(false);
+  const [lastRollTime, setLastRollTime] = useState(0);
   
   const socketRef = useRef<Socket | null>(null);
+  const piecesRef = useRef<Piece[]>([]);
+  useEffect(() => {
+    piecesRef.current = pieces;
+  }, [pieces]);
+
+  const turnRef = useRef<Color>(turn);
+  useEffect(() => {
+    turnRef.current = turn;
+  }, [turn]);
+
+  const diceValueRef = useRef<number>(diceValue);
+  useEffect(() => {
+    diceValueRef.current = diceValue;
+  }, [diceValue]);
+
+  const getPieceCoords = (piece: Piece): [number, number] | null => {
+    if (piece.position === -1) return null;
+    if (piece.position < 51) {
+      const absIdx = (START_INDEX[piece.color] + piece.position) % 52;
+      return BOARD_PATH[absIdx];
+    }
+    if (piece.position < 57) {
+      return HOME_STRETCH[piece.color][piece.position - 51];
+    }
+    return [7, 7]; // Center
+  };
+
+  const isSafeSpot = (r: number, c: number) => {
+    return SAFE_SPOTS_COORDS.some(([sr, sc]) => sr === r && sc === c);
+  };
 
   const initPieces = () => {
     const initialPieces: Piece[] = [];
@@ -153,10 +208,37 @@ export default function App() {
     initPieces();
   }, []);
 
+  // Bot Logic
+  useEffect(() => {
+    if (mode === 'OFFLINE' && !winner && !isRolling && canRoll) {
+      const currentPlayer = players.find(p => p.color === turn);
+      if (currentPlayer?.isBot) {
+        const timer = setTimeout(() => rollDice(), 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [turn, mode, winner, isRolling, canRoll]);
+
+  useEffect(() => {
+    if (mode === 'OFFLINE' && !winner && !isRolling && !canRoll) {
+      const currentPlayer = players.find(p => p.color === turn);
+      if (currentPlayer?.isBot) {
+        const possibleMoves = pieces.filter(p => p.color === turn && canMove(p, diceValue));
+        if (possibleMoves.length > 0) {
+          const randomPiece = possibleMoves[Math.floor(Math.random() * possibleMoves.length)];
+          const timer = setTimeout(() => movePiece(randomPiece.id, turn), 1000);
+          return () => clearTimeout(timer);
+        }
+      }
+    }
+  }, [turn, mode, winner, isRolling, canRoll, diceValue]);
+
   const rollDice = () => {
     if (!canRoll) return;
     if (mode === 'ONLINE_GAME' && turn !== myColor) return;
+    if (Date.now() - lastRollTime < 1000) return;
 
+    setLastRollTime(Date.now());
     setIsRolling(true);
     setCanRoll(false);
 
@@ -187,7 +269,7 @@ export default function App() {
   const canMove = (piece: Piece, roll: number) => {
     if (piece.isFinished) return false;
     if (piece.position === -1) return roll === 6;
-    if (piece.position >= 52) return piece.position + roll <= 58;
+    if (piece.position + roll > 57) return false;
     return true;
   };
 
@@ -207,20 +289,48 @@ export default function App() {
   };
 
   const executeMove = (pieceId: number, color: Color, roll: number) => {
-    const pieceIndex = pieces.findIndex(p => p.id === pieceId && p.color === color);
-    const piece = pieces[pieceIndex];
-    const newPieces = [...pieces];
-    let newPos = piece.position === -1 ? 0 : piece.position + roll;
+    setPieces(prevPieces => {
+      const pieceIndex = prevPieces.findIndex(p => p.id === pieceId && p.color === color);
+      if (pieceIndex === -1) return prevPieces;
+      
+      const piece = prevPieces[pieceIndex];
+      const newPieces = [...prevPieces];
+      let newPos = piece.position === -1 ? 0 : piece.position + roll;
 
-    if (newPos === 58) {
-      newPieces[pieceIndex] = { ...piece, position: newPos, isFinished: true };
-      if (newPieces.filter(p => p.color === color && p.isFinished).length === 4) setWinner(color);
-    } else {
-      newPieces[pieceIndex] = { ...piece, position: newPos };
-    }
+      let captured = false;
+      if (newPos === 57) {
+        newPieces[pieceIndex] = { ...piece, position: newPos, isFinished: true };
+        if (newPieces.filter(p => p.color === color && p.isFinished).length === 4) setWinner(color);
+      } else {
+        newPieces[pieceIndex] = { ...piece, position: newPos };
+        
+        // Capture Logic
+        if (newPos < 51) {
+          const coords = getPieceCoords(newPieces[pieceIndex]);
+          if (coords && !isSafeSpot(coords[0], coords[1])) {
+            newPieces.forEach((p, idx) => {
+              if (p.color !== color && p.position !== -1 && !p.isFinished) {
+                const otherCoords = getPieceCoords(p);
+                if (otherCoords && otherCoords[0] === coords[0] && otherCoords[1] === coords[1]) {
+                  newPieces[idx] = { ...p, position: -1 };
+                  captured = true;
+                }
+              }
+            });
+          }
+        }
+      }
 
-    setPieces(newPieces);
-    if (roll !== 6) nextTurn(); else setCanRoll(true);
+      if (roll === 6 || captured) {
+        setCanRoll(true);
+      } else {
+        // We need to trigger nextTurn but we are inside setPieces
+        // Using a timeout to avoid state update during render
+        setTimeout(() => nextTurn(), 0);
+      }
+      
+      return newPieces;
+    });
   };
 
   const joinOnlineRoom = () => {
@@ -244,8 +354,8 @@ export default function App() {
         setTimeout(() => {
           setDiceValue(action.value);
           setIsRolling(false);
-          // Check if the current turn player has any moves
-          const possibleMoves = pieces.filter(p => p.color === action.turn && canMove(p, action.value));
+          
+          const possibleMoves = piecesRef.current.filter(p => p.color === action.turn && canMove(p, action.value));
           if (possibleMoves.length === 0) {
             setTimeout(() => nextTurn(), 1000);
           }
@@ -275,7 +385,7 @@ export default function App() {
         if (r < 6 && c < 6) {
           if (r === 0 && c === 0) cells.push(<div key="red-home" className="home-area bg-red-600" style={{ gridArea: '1 / 1 / 7 / 7' }}>
             {pieces.filter(p => p.color === 'red' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'red')} className={cn("piece bg-red-500", turn === 'red' && !canRoll && diceValue === 6 && "active")} /></div>
+              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'red')} className={cn("piece bg-red-500", turn === 'red' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
             ))}
           </div>);
           continue;
@@ -283,7 +393,7 @@ export default function App() {
         if (r < 6 && c > 8) {
           if (r === 0 && c === 9) cells.push(<div key="green-home" className="home-area bg-green-600" style={{ gridArea: '1 / 10 / 7 / 16' }}>
             {pieces.filter(p => p.color === 'green' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'green')} className={cn("piece bg-green-500", turn === 'green' && !canRoll && diceValue === 6 && "active")} /></div>
+              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'green')} className={cn("piece bg-green-500", turn === 'green' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
             ))}
           </div>);
           continue;
@@ -291,7 +401,7 @@ export default function App() {
         if (r > 8 && c < 6) {
           if (r === 9 && c === 0) cells.push(<div key="blue-home" className="home-area bg-blue-600" style={{ gridArea: '10 / 1 / 16 / 7' }}>
             {pieces.filter(p => p.color === 'blue' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'blue')} className={cn("piece bg-blue-500", turn === 'blue' && !canRoll && diceValue === 6 && "active")} /></div>
+              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'blue')} className={cn("piece bg-blue-500", turn === 'blue' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
             ))}
           </div>);
           continue;
@@ -299,7 +409,7 @@ export default function App() {
         if (r > 8 && c > 8) {
           if (r === 9 && c === 9) cells.push(<div key="yellow-home" className="home-area bg-yellow-500" style={{ gridArea: '10 / 10 / 16 / 16' }}>
             {pieces.filter(p => p.color === 'yellow' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'yellow')} className={cn("piece bg-yellow-400", turn === 'yellow' && !canRoll && diceValue === 6 && "active")} /></div>
+              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'yellow')} className={cn("piece bg-yellow-400", turn === 'yellow' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
             ))}
           </div>);
           continue;
@@ -314,6 +424,9 @@ export default function App() {
               <div className="center-triangle border-t-[50px] border-t-green-500 border-l-[50px] border-l-transparent border-r-[50px] border-r-transparent top-0" />
               <div className="center-triangle border-b-[50px] border-b-blue-500 border-l-[50px] border-l-transparent border-r-[50px] border-r-transparent bottom-0" />
               <div className="center-house"><HomeIcon className="w-6 h-6 text-emerald-500" /></div>
+              {pieces.filter(p => p.isFinished).map(p => (
+                <div key={`${p.color}-${p.id}`} className={cn("piece absolute scale-50", `bg-${p.color === 'yellow' ? 'yellow-400' : p.color + '-500'}`)} />
+              ))}
             </div>
           );
           continue;
@@ -327,7 +440,7 @@ export default function App() {
         if ((c === 7 && r > 8 && r < 14) || (r === 13 && c === 6)) cellClass += " bg-blue-500";
 
         // Safe Spots
-        const isSafe = (r === 6 && c === 1) || (r === 8 && c === 2) || (r === 1 && c === 6) || (r === 2 && c === 8) || (r === 8 && c === 13) || (r === 6 && c === 12) || (r === 13 && c === 8) || (r === 12 && c === 6);
+        const isSafe = isSafeSpot(r, c);
         if (isSafe) cellClass += " safe-star";
 
         // Arrows
@@ -336,7 +449,33 @@ export default function App() {
         if (r === 8 && c === 13) cellClass += " arrow rotate-0";
         if (r === 13 && c === 6) cellClass += " arrow -rotate-90";
 
-        cells.push(<div key={`${r}-${c}`} className={cellClass} />);
+        // Pieces on path
+        const piecesOnCell = pieces.filter(p => {
+          const coords = getPieceCoords(p);
+          return coords && coords[0] === r && coords[1] === c && !p.isFinished;
+        });
+
+        cells.push(
+          <div key={`${r}-${c}`} className={cellClass}>
+            {piecesOnCell.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-0.5 p-0.5">
+                {piecesOnCell.map(p => (
+                  <motion.div 
+                    layoutId={`piece-${p.color}-${p.id}`}
+                    key={`${p.color}-${p.id}`} 
+                    onClick={() => movePiece(p.id, p.color)} 
+                    className={cn(
+                      "piece", 
+                      `bg-${p.color === 'yellow' ? 'yellow-400' : p.color + '-500'}`,
+                      piecesOnCell.length > 1 ? "w-4 h-4" : "w-6 h-6",
+                      turn === p.color && !canRoll && canMove(p, diceValue) && "active"
+                    )} 
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
       }
     }
     return cells;
@@ -427,6 +566,7 @@ export default function App() {
                 diceValue={diceValue} 
                 isRolling={isRolling} 
                 onRoll={rollDice} 
+                isLocalPlayer={mode === 'OFFLINE' ? !players[2].isBot : myColor === 'green'}
               />
             </div>
             <div className="absolute -top-20 -right-10">
@@ -436,6 +576,7 @@ export default function App() {
                 diceValue={diceValue} 
                 isRolling={isRolling} 
                 onRoll={rollDice} 
+                isLocalPlayer={mode === 'OFFLINE' ? !players[1].isBot : myColor === 'yellow'}
               />
             </div>
             <div className="absolute -bottom-20 -left-10">
@@ -445,6 +586,7 @@ export default function App() {
                 diceValue={diceValue} 
                 isRolling={isRolling} 
                 onRoll={rollDice} 
+                isLocalPlayer={mode === 'OFFLINE' ? !players[0].isBot : myColor === 'red'}
               />
             </div>
             <div className="absolute -bottom-20 -right-10">
@@ -454,6 +596,7 @@ export default function App() {
                 diceValue={diceValue} 
                 isRolling={isRolling} 
                 onRoll={rollDice} 
+                isLocalPlayer={mode === 'OFFLINE' ? !players[3].isBot : myColor === 'blue'}
               />
             </div>
 
