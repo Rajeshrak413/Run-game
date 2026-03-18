@@ -83,7 +83,7 @@ const Dice = ({ value, rolling, onClick, disabled }: { value: number; rolling: b
     ][value - 1];
 
     return positions.map((active, i) => (
-      <div key={i} className={cn("w-2 h-2 rounded-full", active ? "bg-slate-800" : "bg-transparent")} />
+      <div key={i} className={cn("w-1.5 h-1.5 rounded-full", active ? "bg-slate-800" : "bg-transparent")} />
     ));
   };
 
@@ -93,53 +93,13 @@ const Dice = ({ value, rolling, onClick, disabled }: { value: number; rolling: b
       whileTap={!disabled ? { scale: 0.95 } : {}}
       onClick={!disabled ? onClick : undefined}
       className={cn(
-        "w-12 h-12 bg-white border-2 border-slate-200 rounded-xl grid grid-cols-3 grid-rows-3 p-2 gap-1 shadow-md cursor-pointer",
+        "w-10 h-10 bg-white border-2 border-slate-200 rounded-lg grid grid-cols-3 grid-rows-3 p-1.5 gap-0.5 shadow-md cursor-pointer",
         rolling && "animate-bounce",
         disabled && "opacity-50 cursor-not-allowed"
       )}
     >
       {renderDots()}
     </motion.div>
-  );
-};
-
-const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll, isLocalPlayer }: { player: Player; isActive: boolean; diceValue: number; isRolling: boolean; onRoll: () => void; isLocalPlayer: boolean }) => {
-  const isRightSide = player.color === 'green' || player.color === 'yellow';
-  return (
-    <div className={cn("flex items-center gap-3", isRightSide ? 'flex-row-reverse' : 'flex-row')}>
-      <div className="relative">
-        <div className={cn("avatar-ring w-16 h-16 overflow-hidden border-2", isActive ? "border-white" : "border-transparent")}>
-          <img src={player.avatar} alt={player.name} className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
-        </div>
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 coin-badge">
-          <span className="text-yellow-200">●</span> {player.coins}
-        </div>
-        {isActive && (
-          <div className="absolute -top-2 -right-2 flex gap-1">
-            <div className="bg-white p-1 rounded-full shadow-sm"><MessageSquare className="w-3 h-3 text-slate-600" /></div>
-            <div className="bg-white p-1 rounded-full shadow-sm"><Smile className="w-3 h-3 text-slate-600" /></div>
-          </div>
-        )}
-      </div>
-      
-      <div className="flex items-center gap-2 h-12 min-w-[80px] justify-center">
-        {isActive && (
-          <div className="flex items-center gap-2">
-            {isRightSide ? (
-              <>
-                <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
-                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[12px] border-r-white drop-shadow-sm" />
-              </>
-            ) : (
-              <>
-                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[12px] border-l-white drop-shadow-sm" />
-                <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
-              </>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
   );
 };
 
@@ -416,35 +376,118 @@ export default function App() {
       for (let c = 0; c < 15; c++) {
         // Home Areas
         if (r < 6 && c < 6) {
-          if (r === 0 && c === 0) cells.push(<div key="red-home" className="home-area bg-red-600" style={{ gridArea: '1 / 1 / 7 / 7' }}>
-            {pieces.filter(p => p.color === 'red' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'red')} className={cn("piece bg-red-500", turn === 'red' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
-            ))}
-          </div>);
+          if (r === 0 && c === 0) {
+            const player = players.find(p => p.color === 'red');
+            const isActive = turn === 'red';
+            cells.push(
+              <div key="red-home" className={cn("home-area bg-red-600", isActive && "ring-4 ring-white ring-inset")} style={{ gridArea: '1 / 1 / 7 / 7' }}>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+                  <img src={player?.avatar} className="w-16 h-16 rounded-full grayscale opacity-50" referrerPolicy="no-referrer" />
+                  <span className="font-black text-white text-[10px] mt-1 uppercase tracking-widest">{player?.name}</span>
+                </div>
+                {pieces.filter(p => p.color === 'red' && p.position === -1).map(p => (
+                  <div key={p.id} className="home-inner">
+                    <div onClick={() => movePiece(p.id, 'red')} className={cn("piece bg-red-500", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
+                  </div>
+                ))}
+                {isActive && canRoll && (
+                  <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
+                    <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
+                  </div>
+                )}
+              </div>
+            );
+          }
           continue;
         }
         if (r < 6 && c > 8) {
-          if (r === 0 && c === 9) cells.push(<div key="green-home" className="home-area bg-green-600" style={{ gridArea: '1 / 10 / 7 / 16' }}>
-            {pieces.filter(p => p.color === 'green' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'green')} className={cn("piece bg-green-500", turn === 'green' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
-            ))}
-          </div>);
+          if (r === 0 && c === 9) {
+            const player = players.find(p => p.color === 'green');
+            const isActive = turn === 'green';
+            const isVisible = mode === 'ONLINE_GAME' || activeColors.includes('green');
+            cells.push(
+              <div key="green-home" className={cn("home-area bg-green-600", isActive && "ring-4 ring-white ring-inset", !isVisible && "opacity-10")} style={{ gridArea: '1 / 10 / 7 / 16' }}>
+                {isVisible && (
+                  <>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+                      <img src={player?.avatar} className="w-16 h-16 rounded-full grayscale opacity-50" referrerPolicy="no-referrer" />
+                      <span className="font-black text-white text-[10px] mt-1 uppercase tracking-widest">{player?.name}</span>
+                    </div>
+                    {pieces.filter(p => p.color === 'green' && p.position === -1).map(p => (
+                      <div key={p.id} className="home-inner">
+                        <div onClick={() => movePiece(p.id, 'green')} className={cn("piece bg-green-500", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
+                      </div>
+                    ))}
+                    {isActive && canRoll && (
+                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
+                        <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          }
           continue;
         }
         if (r > 8 && c < 6) {
-          if (r === 9 && c === 0) cells.push(<div key="blue-home" className="home-area bg-blue-600" style={{ gridArea: '10 / 1 / 16 / 7' }}>
-            {pieces.filter(p => p.color === 'blue' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'blue')} className={cn("piece bg-blue-500", turn === 'blue' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
-            ))}
-          </div>);
+          if (r === 9 && c === 0) {
+            const player = players.find(p => p.color === 'blue');
+            const isActive = turn === 'blue';
+            const isVisible = mode === 'ONLINE_GAME' || activeColors.includes('blue');
+            cells.push(
+              <div key="blue-home" className={cn("home-area bg-blue-600", isActive && "ring-4 ring-white ring-inset", !isVisible && "opacity-10")} style={{ gridArea: '10 / 1 / 16 / 7' }}>
+                {isVisible && (
+                  <>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+                      <img src={player?.avatar} className="w-16 h-16 rounded-full grayscale opacity-50" referrerPolicy="no-referrer" />
+                      <span className="font-black text-white text-[10px] mt-1 uppercase tracking-widest">{player?.name}</span>
+                    </div>
+                    {pieces.filter(p => p.color === 'blue' && p.position === -1).map(p => (
+                      <div key={p.id} className="home-inner">
+                        <div onClick={() => movePiece(p.id, 'blue')} className={cn("piece bg-blue-500", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
+                      </div>
+                    ))}
+                    {isActive && canRoll && (
+                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
+                        <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          }
           continue;
         }
         if (r > 8 && c > 8) {
-          if (r === 9 && c === 9) cells.push(<div key="yellow-home" className="home-area bg-yellow-500" style={{ gridArea: '10 / 10 / 16 / 16' }}>
-            {pieces.filter(p => p.color === 'yellow' && p.position === -1).map(p => (
-              <div key={p.id} className="home-inner"><div onClick={() => movePiece(p.id, 'yellow')} className={cn("piece bg-yellow-400", turn === 'yellow' && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} /></div>
-            ))}
-          </div>);
+          if (r === 9 && c === 9) {
+            const player = players.find(p => p.color === 'yellow');
+            const isActive = turn === 'yellow';
+            const isVisible = mode === 'ONLINE_GAME' || activeColors.includes('yellow');
+            cells.push(
+              <div key="yellow-home" className={cn("home-area bg-yellow-500", isActive && "ring-4 ring-white ring-inset", !isVisible && "opacity-10")} style={{ gridArea: '10 / 10 / 16 / 16' }}>
+                {isVisible && (
+                  <>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-40">
+                      <img src={player?.avatar} className="w-16 h-16 rounded-full grayscale opacity-50" referrerPolicy="no-referrer" />
+                      <span className="font-black text-white text-[10px] mt-1 uppercase tracking-widest">{player?.name}</span>
+                    </div>
+                    {pieces.filter(p => p.color === 'yellow' && p.position === -1).map(p => (
+                      <div key={p.id} className="home-inner">
+                        <div onClick={() => movePiece(p.id, 'yellow')} className={cn("piece bg-yellow-400", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
+                      </div>
+                    ))}
+                    {isActive && canRoll && (
+                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
+                        <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          }
           continue;
         }
 
@@ -517,204 +560,153 @@ export default function App() {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center p-4">
       {mode === 'MENU' ? (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-10 text-center shadow-2xl max-w-sm w-full">
-          <Dice5 className="w-16 h-16 text-red-500 mx-auto mb-6" />
-          <h1 className="text-4xl font-black mb-8 tracking-tighter text-slate-900">LUDO ROYALE</h1>
-          <div className="space-y-4">
-            <button onClick={() => setMode('OFFLINE_SETUP')} className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-red-200 active:scale-95 transition-all">LOCAL PLAY</button>
-            <button onClick={() => setMode('ONLINE_LOBBY')} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 active:scale-95 transition-all">ONLINE PLAY</button>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-12">
+          <div className="text-center">
+            <motion.div initial={{ y: -20 }} animate={{ y: 0 }} className="flex items-center justify-center mb-4">
+              <Trophy className="w-16 h-16 text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]" />
+            </motion.div>
+            <h1 className="text-7xl font-black tracking-tighter text-white uppercase italic">Ludo</h1>
+            <p className="text-slate-500 font-medium tracking-widest uppercase text-xs mt-2">The Classic Reimagined</p>
+          </div>
+
+          <div className="flex flex-col gap-4 w-64">
+            <button onClick={() => setMode('OFFLINE_SETUP')} className="bg-white text-slate-950 py-4 rounded-full font-bold text-lg hover:bg-slate-200 transition-all hover:scale-105 active:scale-95 shadow-xl">LOCAL PLAY</button>
+            <button onClick={() => setMode('ONLINE_LOBBY')} className="bg-slate-800 text-white py-4 rounded-full font-bold text-lg hover:bg-slate-700 transition-all hover:scale-105 active:scale-95 border border-white/10">ONLINE MULTIPLAYER</button>
           </div>
         </motion.div>
       ) : mode === 'OFFLINE_SETUP' ? (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm w-full">
-          <h2 className="text-2xl font-black mb-6 text-slate-900 uppercase">Setup Local Game</h2>
-          
-          <div className="mb-8">
-            <p className="text-sm font-bold text-slate-500 mb-3 uppercase">Number of Players</p>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">Setup Game</h2>
+            <p className="text-slate-500 text-sm mt-2">Choose your players and names</p>
+          </div>
+
+          <div className="space-y-8">
             <div className="flex justify-center gap-4">
-              {[2, 3, 4].map(num => (
-                <button
-                  key={num}
-                  onClick={() => setOfflinePlayerCount(num)}
+              {[2, 3, 4].map(count => (
+                <button 
+                  key={count} 
+                  onClick={() => setOfflinePlayerCount(count as 2 | 3 | 4)}
                   className={cn(
-                    "w-12 h-12 rounded-xl font-bold text-lg transition-all",
-                    offlinePlayerCount === num 
-                      ? "bg-red-600 text-white shadow-lg shadow-red-200 scale-110" 
-                      : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                    "w-16 h-16 rounded-2xl font-black text-xl transition-all border-2",
+                    offlinePlayerCount === count 
+                      ? "bg-white text-slate-950 border-white scale-110" 
+                      : "bg-slate-900 text-slate-500 border-white/10 hover:border-white/30"
                   )}
                 >
-                  {num}
+                  {count}
                 </button>
               ))}
             </div>
-          </div>
 
-          <div className="space-y-3 mb-8 text-left">
-            <p className="text-sm font-bold text-slate-500 uppercase">Player Names</p>
-            {Array.from({ length: offlinePlayerCount }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={cn("w-3 h-3 rounded-full flex-shrink-0", `bg-${COLORS[i]}-500`)} />
-                <input
-                  type="text"
-                  value={offlinePlayerNames[i]}
-                  onChange={(e) => {
-                    const newNames = [...offlinePlayerNames];
-                    newNames[i] = e.target.value;
-                    setOfflinePlayerNames(newNames);
-                  }}
-                  className="w-full px-4 py-2 rounded-xl border-2 border-slate-100 focus:border-red-500 outline-none transition-all text-slate-800 font-medium"
-                  placeholder={`Player ${i + 1}`}
-                />
-              </div>
-            ))}
-          </div>
+            <div className="space-y-3">
+              {Array.from({ length: offlinePlayerCount }).map((_, i) => (
+                <div key={i} className="relative">
+                  <input
+                    type="text"
+                    placeholder={`Player ${i + 1} Name`}
+                    value={offlinePlayerNames[i]}
+                    onChange={(e) => {
+                      const newNames = [...offlinePlayerNames];
+                      newNames[i] = e.target.value;
+                      setOfflinePlayerNames(newNames);
+                    }}
+                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-6 py-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30 transition-colors"
+                  />
+                  <div className={cn("absolute right-4 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full", 
+                    i === 0 ? "bg-red-500" : i === 1 ? "bg-yellow-500" : i === 2 ? "bg-green-500" : "bg-blue-500"
+                  )} />
+                </div>
+              ))}
+            </div>
 
-          <div className="space-y-3">
-            <button onClick={startOfflineGame} className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-red-200 active:scale-95 transition-all">START GAME</button>
-            <button onClick={() => setMode('MENU')} className="w-full text-slate-400 font-bold py-2 flex items-center justify-center gap-2"><ArrowLeft className="w-4 h-4" /> Back</button>
+            <button 
+              onClick={startOfflineGame}
+              className="w-full bg-white text-slate-950 py-5 rounded-2xl font-black text-xl hover:bg-slate-200 transition-all active:scale-95 mt-4"
+            >
+              START BATTLE
+            </button>
+            
+            <button onClick={() => setMode('MENU')} className="w-full text-slate-500 font-bold py-2 hover:text-white transition-colors">BACK TO MENU</button>
           </div>
         </motion.div>
       ) : mode === 'ONLINE_LOBBY' ? (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm w-full">
-          <h2 className="text-2xl font-black mb-6 text-slate-900">ONLINE LOBBY</h2>
-          <div className="space-y-4 mb-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md px-6">
+          <div className="mb-12 text-center">
+            <h2 className="text-4xl font-black text-white uppercase italic tracking-tighter">Online Lobby</h2>
+            <p className="text-slate-500 text-sm mt-2">Join or create a room to play</p>
+          </div>
+
+          <div className="space-y-4">
             <input 
               type="text" 
               placeholder="Your Name" 
               value={playerName} 
               onChange={(e) => setPlayerName(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all text-slate-800"
+              className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-6 py-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30 transition-colors"
             />
             <input 
               type="text" 
               placeholder="Room ID" 
               value={roomId} 
               onChange={(e) => setRoomId(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all text-slate-800"
+              className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-6 py-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30 transition-colors"
             />
-            <button onClick={joinOnlineRoom} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">JOIN / CREATE ROOM</button>
+            <button onClick={joinOnlineRoom} className="w-full bg-white text-slate-950 py-5 rounded-2xl font-black text-xl hover:bg-slate-200 transition-all active:scale-95 mt-4">JOIN / CREATE ROOM</button>
           </div>
 
           {onlinePlayers.length > 0 && (
-            <div className="text-left mb-6">
-              <p className="text-sm font-bold text-slate-500 mb-2">PLAYERS IN ROOM ({onlinePlayers.length}/4)</p>
-              <div className="space-y-2">
+            <div className="mt-12">
+              <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-4">Players in Room ({onlinePlayers.length}/4)</p>
+              <div className="grid grid-cols-2 gap-3">
                 {onlinePlayers.map((p, i) => (
-                  <div key={i} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-3 h-3 rounded-full", `bg-${p.color}-500`)} />
-                      <span className="font-bold text-slate-700">{p.name}</span>
-                    </div>
-                    {p.id === socketRef.current?.id && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase">You</span>}
+                  <div key={i} className="bg-slate-900/50 border border-white/10 p-4 rounded-xl flex items-center gap-3">
+                    <div className={cn("w-3 h-3 rounded-full", `bg-${p.color}-500`)} />
+                    <span className="font-bold text-white text-sm truncate">{p.name}</span>
+                    {p.id === socketRef.current?.id && <span className="text-[8px] bg-white/10 text-white/40 px-1.5 py-0.5 rounded-full font-bold uppercase ml-auto">You</span>}
                   </div>
                 ))}
               </div>
+              
+              <div className="mt-8">
+                {onlinePlayers.length >= 2 ? (
+                  onlinePlayers[0].id === socketRef.current?.id ? (
+                    <button onClick={startOnlineGame} className="w-full bg-emerald-500 text-white py-5 rounded-2xl font-black text-xl hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">START BATTLE</button>
+                  ) : (
+                    <div className="bg-slate-900/50 border border-white/10 p-5 rounded-2xl text-slate-500 font-bold text-center animate-pulse uppercase tracking-widest text-sm">Waiting for host...</div>
+                  )
+                ) : (
+                  <div className="bg-slate-900/50 border border-white/10 p-5 rounded-2xl text-slate-500 font-bold text-center uppercase tracking-widest text-sm">Waiting for players...</div>
+                )}
+              </div>
             </div>
           )}
-
-          {onlinePlayers.length >= 2 ? (
-            onlinePlayers[0].id === socketRef.current?.id ? (
-              <button onClick={startOnlineGame} className="w-full bg-green-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 active:scale-95 transition-all">START GAME</button>
-            ) : (
-              <div className="bg-slate-100 p-4 rounded-2xl text-slate-500 font-bold animate-pulse">WAITING FOR HOST TO START...</div>
-            )
-          ) : (
-            <div className="bg-slate-100 p-4 rounded-2xl text-slate-500 font-bold">WAITING FOR MORE PLAYERS...</div>
-          )}
           
-          <button onClick={() => setMode('MENU')} className="mt-4 text-slate-400 font-bold flex items-center gap-2 mx-auto"><ArrowLeft className="w-4 h-4" /> Back to Menu</button>
+          <button onClick={() => setMode('MENU')} className="w-full text-slate-500 font-bold py-8 hover:text-white transition-colors">BACK TO MENU</button>
         </motion.div>
       ) : (
         <div className="flex flex-col items-center gap-8 w-full max-w-4xl">
-          {/* Top Bar */}
-          <div className="w-full max-w-[600px] flex justify-between items-center px-4">
-            <button onClick={() => {
-              if (mode === 'ONLINE_GAME') socketRef.current?.disconnect();
-              setMode('MENU');
-            }} className="bg-blue-500 p-2 rounded-lg shadow-md"><ArrowLeft className="w-6 h-6 text-white" /></button>
-            <div className="bg-blue-900/80 border-2 border-yellow-500 rounded-xl px-8 py-1 flex items-center gap-4 shadow-lg">
-              <span className="text-yellow-400 font-black italic text-xl">{mode === 'ONLINE_GAME' ? 'Online' : 'Local'}</span>
-              <div className="bg-black/40 px-4 py-1 rounded-lg text-white font-bold text-sm">{roomId || 'PASS & PLAY'}</div>
-            </div>
-            <div className="w-10" />
-          </div>
-
-          <div className="relative w-full max-w-[450px] mt-16 mb-16">
-            {/* Player Avatars */}
-            <div className="absolute -top-16 left-0">
-              {/* Top-Left: Red */}
-              <PlayerAvatar 
-                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red') || players[0]) : (players.find(p => p.color === 'red') || players[0])} 
-                isActive={turn === 'red'} 
-                diceValue={diceValue} 
-                isRolling={isRolling} 
-                onRoll={rollDice} 
-                isLocalPlayer={true}
-              />
-            </div>
-            <div className="absolute -top-16 right-0">
-              {/* Top-Right: Green */}
-              {(mode === 'ONLINE_GAME' || activeColors.includes('green')) && (
-                <PlayerAvatar 
-                  player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'green') || players[1]) : (players.find(p => p.color === 'green') || players[1])} 
-                  isActive={turn === 'green'} 
-                  diceValue={diceValue} 
-                  isRolling={isRolling} 
-                  onRoll={rollDice} 
-                  isLocalPlayer={true}
-                />
-              )}
-            </div>
-            <div className="absolute -bottom-16 left-0">
-              {/* Bottom-Left: Blue */}
-              {(mode === 'ONLINE_GAME' || activeColors.includes('blue')) && (
-                <PlayerAvatar 
-                  player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'blue') || players[3]) : (players.find(p => p.color === 'blue') || players[3])} 
-                  isActive={turn === 'blue'} 
-                  diceValue={diceValue} 
-                  isRolling={isRolling} 
-                  onRoll={rollDice} 
-                  isLocalPlayer={true}
-                />
-              )}
-            </div>
-            <div className="absolute -bottom-16 right-0">
-              {/* Bottom-Right: Yellow */}
-              {(mode === 'ONLINE_GAME' || activeColors.includes('yellow')) && (
-                <PlayerAvatar 
-                  player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow') || players[2]) : (players.find(p => p.color === 'yellow') || players[2])} 
-                  isActive={turn === 'yellow'} 
-                  diceValue={diceValue} 
-                  isRolling={isRolling} 
-                  onRoll={rollDice} 
-                  isLocalPlayer={true}
-                />
-              )}
-            </div>
-
+          <div className="relative w-full max-w-[450px]">
             <div className="ludo-container">
-              {/* Name Plates */}
-              <div className="player-plate top-0 left-0 -translate-y-full">
-                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red')?.name || 'Waiting...') : (players.find(p => p.color === 'red')?.name || '')}
-              </div>
-              <div className="player-plate top-0 right-0 -translate-y-full">
-                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'green')?.name || 'Waiting...') : (players.find(p => p.color === 'green')?.name || '')}
-              </div>
-              <div className="player-plate bottom-0 left-0 translate-y-full">
-                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'blue')?.name || 'Waiting...') : (players.find(p => p.color === 'blue')?.name || '')}
-              </div>
-              <div className="player-plate bottom-0 right-0 translate-y-full">
-                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow')?.name || 'Waiting...') : (players.find(p => p.color === 'yellow')?.name || '')}
-              </div>
-              
               <div className="ludo-board">
                 {renderGrid()}
               </div>
             </div>
+            
+            {/* Exit Button */}
+            <button 
+              onClick={() => {
+                if (mode === 'ONLINE_GAME') socketRef.current?.disconnect();
+                setMode('MENU');
+              }} 
+              className="absolute -top-12 left-0 bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </button>
           </div>
 
           {mode === 'ONLINE_GAME' && myColor && (
-            <div className="mt-4 bg-white/10 backdrop-blur-sm px-6 py-2 rounded-full border border-white/20">
+            <div className="bg-white/10 backdrop-blur-sm px-6 py-2 rounded-full border border-white/20">
               <p className="text-white font-bold">You are playing as <span className={cn("uppercase", `text-${myColor}-400`)}>{myColor}</span></p>
             </div>
           )}
@@ -724,11 +716,12 @@ export default function App() {
       {/* Winner Modal */}
       <AnimatePresence>
         {winner && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-3xl p-10 text-center max-w-sm w-full">
-              <Trophy className="w-20 h-20 text-yellow-500 mx-auto mb-6" />
-              <h2 className="text-3xl font-black mb-2 uppercase">{winner} WINS!</h2>
-              <button onClick={() => { setWinner(null); setMode('MENU'); }} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold mt-8">PLAY AGAIN</button>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="text-center">
+              <Trophy className="w-24 h-24 text-yellow-500 mx-auto mb-6 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
+              <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-white">{winner} WINS!</h2>
+              <p className="text-slate-400 font-medium mb-8">Victory is yours, champion.</p>
+              <button onClick={() => { setWinner(null); setMode('MENU'); }} className="bg-white text-slate-950 px-12 py-4 rounded-full font-bold text-lg hover:bg-slate-200 transition-colors">PLAY AGAIN</button>
             </motion.div>
           </motion.div>
         )}

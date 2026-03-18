@@ -19,7 +19,7 @@ html, body, #root {
 body {
   margin: 0;
   padding: 0;
-  background: radial-gradient(circle at center, #1e3799, #0c2461);
+  background: #0f172a;
   color: #fff;
   font-family: var(--font-sans);
   min-height: 100vh;
@@ -28,23 +28,17 @@ body {
   justify-content: center;
 }
 
-/* Floating Dice Background Effect */
+/* Remove noisy background */
 body::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20h60v60H20z' fill='none' stroke='rgba(255,255,255,0.05)' stroke-width='2'/%3E%3Ccircle cx='35' cy='35' r='5' fill='rgba(255,255,255,0.05)'/%3E%3Ccircle cx='65' cy='65' r='5' fill='rgba(255,255,255,0.05)'/%3E%3C/svg%3E");
-  background-size: 150px;
-  opacity: 0.5;
-  z-index: -1;
+  display: none;
 }
 
 .ludo-container {
   position: relative;
-  padding: 10px;
-  background: #8b5e34; /* Wooden frame */
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 0 15px rgba(0,0,0,0.3);
+  padding: 4px;
+  background: #1e293b;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.4);
   width: min(98vw, 450px);
   margin: 0 auto;
 }
@@ -108,13 +102,13 @@ body::before {
 }
 
 .piece {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  border: 2px solid rgba(255,255,255,0.4);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4), inset 0 -2px 3px rgba(0,0,0,0.2);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -123,10 +117,7 @@ body::before {
 }
 
 .piece::after {
-  content: '★';
-  color: white;
-  font-size: 0.8rem;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  content: '';
 }
 
 .piece:hover {
@@ -170,15 +161,17 @@ body::before {
 
 .player-plate {
   position: absolute;
-  background: #8b5e34;
-  padding: 4px 12px;
-  border-radius: 8px;
-  font-weight: 800;
-  font-size: 0.7rem;
-  color: #fff;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(4px);
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.6rem;
+  color: #94a3b8;
   z-index: 20;
-  border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .dice-box {
