@@ -6,18 +6,26 @@
   --font-display: "Space Grotesk", sans-serif;
 }
 
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: fixed;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   padding: 0;
   background: radial-gradient(circle at center, #1e3799, #0c2461);
   color: #fff;
   font-family: var(--font-sans);
-  user-select: none;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
 }
 
 /* Floating Dice Background Effect */

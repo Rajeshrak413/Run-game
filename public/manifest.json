@@ -1,20 +1,21 @@
 {
-  "short_name": "EternalChase",
-  "name": "Eternal Chase: Love Runner",
+  "short_name": "Ludo Royale",
+  "name": "Ludo Royale: Online Multiplayer",
   "icons": [
     {
-      "src": "https://picsum.photos/seed/heart/192/192",
+      "src": "https://picsum.photos/seed/dice/192/192",
       "type": "image/png",
       "sizes": "192x192"
     },
     {
-      "src": "https://picsum.photos/seed/heart/512/512",
+      "src": "https://picsum.photos/seed/dice/512/512",
       "type": "image/png",
       "sizes": "512x512"
     }
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#e94560",
-  "background_color": "#1a1a2e"
+  "orientation": "portrait",
+  "theme_color": "#0c2461",
+  "background_color": "#0c2461"
 }

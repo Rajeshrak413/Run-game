@@ -117,7 +117,40 @@ const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll }: { play
 };
 
 export default function App() {
+  const [isMobile, setIsMobile] = useState(true);
   const [mode, setMode] = useState<'MENU' | 'OFFLINE' | 'ONLINE_LOBBY' | 'ONLINE_GAME'>('MENU');
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  if (!isMobile) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-24 h-24 bg-red-500 rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-red-500/20">
+          <Dice5 className="w-14 h-14 text-white" />
+        </div>
+        <h1 className="text-3xl font-black text-white mb-4 tracking-tight">MOBILE ONLY</h1>
+        <p className="text-slate-400 max-w-xs leading-relaxed">
+          Ludo Royale is optimized for mobile devices. Please open this link on your smartphone to play.
+        </p>
+        <div className="mt-10 p-4 bg-slate-800 rounded-2xl border border-slate-700">
+          <img 
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`} 
+            alt="QR Code" 
+            className="w-32 h-32 rounded-lg"
+          />
+          <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest font-bold">Scan to play on mobile</p>
+        </div>
+      </div>
+    );
+  }
+
   const [roomId, setRoomId] = useState('');
   const [playerName, setPlayerName] = useState('Player');
   const [players, setPlayers] = useState<Player[]>([
