@@ -237,42 +237,95 @@ export default function App() {
     const draw = () => {
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // Background Gradient
-      const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
-      grad.addColorStop(0, '#1a1a2e');
-      grad.addColorStop(1, '#16213e');
-      ctx.fillStyle = grad;
+      // --- Background (Sky/Environment) ---
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      skyGrad.addColorStop(0, '#87CEEB'); // Sky Blue
+      skyGrad.addColorStop(0.6, '#E0F6FF');
+      ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-      // Draw Ground
-      ctx.fillStyle = '#0f3460';
-      ctx.fillRect(0, CANVAS_HEIGHT - 20, CANVAS_WIDTH, 20);
-
-      // Draw Player (The Guy)
-      ctx.fillStyle = '#e94560';
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = '#e94560';
-      ctx.beginPath();
-      // @ts-ignore - roundRect is available in modern browsers
-      if (ctx.roundRect) {
-        // @ts-ignore
-        ctx.roundRect(50, playerY.current, PLAYER_SIZE, PLAYER_SIZE, 8);
-      } else {
-        ctx.rect(50, playerY.current, PLAYER_SIZE, PLAYER_SIZE);
+      // --- Distant City/Trees (Parallax) ---
+      ctx.fillStyle = '#2F4F4F';
+      for (let i = 0; i < 3; i++) {
+        const x = (i * 200 - (distance.current * 0.1) % 600);
+        ctx.fillRect(x, CANVAS_HEIGHT - 150, 60, 130);
+        ctx.fillRect(x + 80, CANVAS_HEIGHT - 120, 40, 100);
       }
+
+      // --- Road (Asphalt) ---
+      ctx.fillStyle = '#333'; // Asphalt color
+      ctx.fillRect(0, CANVAS_HEIGHT - 100, CANVAS_WIDTH, 100);
+
+      // Road Lines (Moving)
+      ctx.strokeStyle = '#FFF';
+      ctx.setLineDash([30, 30]);
+      ctx.lineDashOffset = (distance.current % 60);
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, CANVAS_HEIGHT - 50);
+      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT - 50);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset dash
+
+      // Road Edge
+      ctx.fillStyle = '#555';
+      ctx.fillRect(0, CANVAS_HEIGHT - 100, CANVAS_WIDTH, 5);
+
+      // --- Player (The Runner) ---
+      // We'll draw a more human-like silhouette with simple animation
+      const runCycle = (distance.current % 100) / 100;
+      const legOffset = Math.sin(runCycle * Math.PI * 2) * 15;
+      
+      ctx.save();
+      ctx.translate(50 + PLAYER_SIZE / 2, playerY.current + PLAYER_SIZE / 2);
+      
+      // Body/Torso
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.ellipse(0, -5, 10, 18, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = 0;
 
-      // Draw Player Eyes
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(50 + PLAYER_SIZE - 15, playerY.current + 10, 5, 5);
-      ctx.fillRect(50 + PLAYER_SIZE - 25, playerY.current + 10, 5, 5);
+      // Head
+      ctx.beginPath();
+      ctx.arc(0, -28, 7, 0, Math.PI * 2);
+      ctx.fill();
 
-      // Draw Obstacles
+      // Legs
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = '#111';
+      
+      // Leg 1
+      ctx.beginPath();
+      ctx.moveTo(0, 10);
+      ctx.lineTo(legOffset, 30);
+      ctx.stroke();
+      
+      // Leg 2
+      ctx.beginPath();
+      ctx.moveTo(0, 10);
+      ctx.lineTo(-legOffset, 30);
+      ctx.stroke();
+
+      // Arms
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(-legOffset * 0.8, -5);
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(0, -15);
+      ctx.lineTo(legOffset * 0.8, -5);
+      ctx.stroke();
+
+      ctx.restore();
+
+      // --- Obstacles (Realistic) ---
       obstacles.current.forEach(obs => {
         if (obs.type === 'HEART') {
+          // Keep the heart but make it glow more
           ctx.fillStyle = '#ff4d6d';
-          ctx.shadowBlur = 10;
+          ctx.shadowBlur = 20;
           ctx.shadowColor = '#ff4d6d';
           const x = obs.x + obs.width / 2;
           const y = obs.y + obs.height / 2;
@@ -281,31 +334,27 @@ export default function App() {
           ctx.bezierCurveTo(x - 20, y - 20, x - 20, y - 40, x, y - 20);
           ctx.bezierCurveTo(x + 20, y - 40, x + 20, y - 20, x, y + 10);
           ctx.fill();
-        } else {
-          ctx.fillStyle = obs.type === 'ROCK' ? '#4a4e69' : '#2d6a4f';
+        } else if (obs.type === 'ROCK') {
+          // Traffic Cone
+          ctx.fillStyle = '#FF4500'; // Orange
           ctx.beginPath();
-          // @ts-ignore
-          if (ctx.roundRect) {
-            // @ts-ignore
-            ctx.roundRect(obs.x, obs.y, obs.width, obs.height, 4);
-          } else {
-            ctx.rect(obs.x, obs.y, obs.width, obs.height);
-          }
+          ctx.moveTo(obs.x + 10, obs.y + obs.height);
+          ctx.lineTo(obs.x + obs.width - 10, obs.y + obs.height);
+          ctx.lineTo(obs.x + obs.width / 2, obs.y);
+          ctx.closePath();
           ctx.fill();
+          // Stripe
+          ctx.fillStyle = '#FFF';
+          ctx.fillRect(obs.x + 18, obs.y + 20, 14, 10);
+        } else {
+          // Barrier
+          ctx.fillStyle = '#8B4513';
+          ctx.fillRect(obs.x, obs.y + 10, obs.width, 10);
+          ctx.fillRect(obs.x + 5, obs.y + 10, 5, 40);
+          ctx.fillRect(obs.x + obs.width - 10, obs.y + 10, 5, 40);
         }
         ctx.shadowBlur = 0;
       });
-
-      // Draw Distance Markers
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-      ctx.lineWidth = 2;
-      for (let i = 0; i < 5; i++) {
-        const x = (CANVAS_WIDTH - (distance.current % CANVAS_WIDTH) + i * CANVAS_WIDTH) % (CANVAS_WIDTH * 2) - CANVAS_WIDTH;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, CANVAS_HEIGHT);
-        ctx.stroke();
-      }
     };
 
     const loop = () => {
