@@ -104,8 +104,9 @@ const Dice = ({ value, rolling, onClick, disabled }: { value: number; rolling: b
 };
 
 const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll, isLocalPlayer }: { player: Player; isActive: boolean; diceValue: number; isRolling: boolean; onRoll: () => void; isLocalPlayer: boolean }) => {
+  const isRightSide = player.color === 'green' || player.color === 'yellow';
   return (
-    <div className={cn("flex items-center gap-3", player.color === 'blue' || player.color === 'yellow' ? 'flex-row-reverse' : 'flex-row')}>
+    <div className={cn("flex items-center gap-3", isRightSide ? 'flex-row-reverse' : 'flex-row')}>
       <div className="relative">
         <div className={cn("avatar-ring w-16 h-16 overflow-hidden border-2", isActive ? "border-white" : "border-transparent")}>
           <img src={player.avatar} alt={player.name} className="w-full h-full object-cover rounded-full" referrerPolicy="no-referrer" />
@@ -124,7 +125,7 @@ const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll, isLocalP
       <div className="flex items-center gap-2 h-12 min-w-[80px] justify-center">
         {isActive && (
           <div className="flex items-center gap-2">
-            {player.color === 'blue' || player.color === 'yellow' ? (
+            {isRightSide ? (
               <>
                 <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
                 <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[12px] border-r-white drop-shadow-sm" />
@@ -144,7 +145,9 @@ const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll, isLocalP
 
 export default function App() {
   const [isMobile, setIsMobile] = useState(true);
-  const [mode, setMode] = useState<'MENU' | 'OFFLINE' | 'ONLINE_LOBBY' | 'ONLINE_GAME'>('MENU');
+  const [mode, setMode] = useState<'MENU' | 'OFFLINE_SETUP' | 'OFFLINE' | 'ONLINE_LOBBY' | 'ONLINE_GAME'>('MENU');
+  const [offlinePlayerCount, setOfflinePlayerCount] = useState(2);
+  const [offlinePlayerNames, setOfflinePlayerNames] = useState(['Player 1', 'Player 2', 'Player 3', 'Player 4']);
   const [roomId, setRoomId] = useState('');
   const [playerName, setPlayerName] = useState('Player' + Math.floor(Math.random() * 1000));
   const [players, setPlayers] = useState<Player[]>([
@@ -206,6 +209,29 @@ export default function App() {
     setPieces(initialPieces);
   };
 
+  const startOfflineGame = () => {
+    const newPlayers: Player[] = [];
+    const colorsToUse = offlinePlayerCount === 2 ? ['red', 'yellow'] : (offlinePlayerCount === 3 ? ['red', 'green', 'yellow'] : COLORS);
+    
+    for (let i = 0; i < offlinePlayerCount; i++) {
+      newPlayers.push({
+        id: (i + 1).toString(),
+        name: offlinePlayerNames[i],
+        color: colorsToUse[i] as Color,
+        isBot: false,
+        coins: 1000,
+        avatar: `https://picsum.photos/seed/p${i + 1}/100`
+      });
+    }
+    setPlayers(newPlayers);
+    setTurn('red');
+    setWinner(null);
+    setCanRoll(true);
+    setDiceValue(6);
+    initPieces();
+    setMode('OFFLINE');
+  };
+
   useEffect(() => {
     initPieces();
   }, []);
@@ -260,11 +286,16 @@ export default function App() {
     }, 600);
   };
 
+  const activeColors = mode === 'OFFLINE' 
+    ? (offlinePlayerCount === 2 ? ['red', 'yellow'] : (offlinePlayerCount === 3 ? ['red', 'green', 'yellow'] : COLORS))
+    : COLORS;
+
   const nextTurn = () => {
-    const currentIndex = COLORS.indexOf(turn);
-    const nextIndex = (currentIndex + 1) % 4;
-    const nextColor = COLORS[nextIndex];
-    setTurn(nextColor);
+    setTurn(prevTurn => {
+      const currentActiveIndex = activeColors.indexOf(prevTurn);
+      const nextActiveIndex = (currentActiveIndex + 1) % activeColors.length;
+      return activeColors[nextActiveIndex] as Color;
+    });
     setCanRoll(true);
   };
 
@@ -490,8 +521,57 @@ export default function App() {
           <Dice5 className="w-16 h-16 text-red-500 mx-auto mb-6" />
           <h1 className="text-4xl font-black mb-8 tracking-tighter text-slate-900">LUDO ROYALE</h1>
           <div className="space-y-4">
-            <button onClick={() => { setMode('OFFLINE'); initPieces(); }} className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-red-200 active:scale-95 transition-all">LOCAL PLAY</button>
+            <button onClick={() => setMode('OFFLINE_SETUP')} className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-red-200 active:scale-95 transition-all">LOCAL PLAY</button>
             <button onClick={() => setMode('ONLINE_LOBBY')} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 active:scale-95 transition-all">ONLINE PLAY</button>
+          </div>
+        </motion.div>
+      ) : mode === 'OFFLINE_SETUP' ? (
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm w-full">
+          <h2 className="text-2xl font-black mb-6 text-slate-900 uppercase">Setup Local Game</h2>
+          
+          <div className="mb-8">
+            <p className="text-sm font-bold text-slate-500 mb-3 uppercase">Number of Players</p>
+            <div className="flex justify-center gap-4">
+              {[2, 3, 4].map(num => (
+                <button
+                  key={num}
+                  onClick={() => setOfflinePlayerCount(num)}
+                  className={cn(
+                    "w-12 h-12 rounded-xl font-bold text-lg transition-all",
+                    offlinePlayerCount === num 
+                      ? "bg-red-600 text-white shadow-lg shadow-red-200 scale-110" 
+                      : "bg-slate-100 text-slate-400 hover:bg-slate-200"
+                  )}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3 mb-8 text-left">
+            <p className="text-sm font-bold text-slate-500 uppercase">Player Names</p>
+            {Array.from({ length: offlinePlayerCount }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className={cn("w-3 h-3 rounded-full flex-shrink-0", `bg-${COLORS[i]}-500`)} />
+                <input
+                  type="text"
+                  value={offlinePlayerNames[i]}
+                  onChange={(e) => {
+                    const newNames = [...offlinePlayerNames];
+                    newNames[i] = e.target.value;
+                    setOfflinePlayerNames(newNames);
+                  }}
+                  className="w-full px-4 py-2 rounded-xl border-2 border-slate-100 focus:border-red-500 outline-none transition-all text-slate-800 font-medium"
+                  placeholder={`Player ${i + 1}`}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-3">
+            <button onClick={startOfflineGame} className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-red-200 active:scale-95 transition-all">START GAME</button>
+            <button onClick={() => setMode('MENU')} className="w-full text-slate-400 font-bold py-2 flex items-center justify-center gap-2"><ArrowLeft className="w-4 h-4" /> Back</button>
           </div>
         </motion.div>
       ) : mode === 'ONLINE_LOBBY' ? (
@@ -562,53 +642,69 @@ export default function App() {
           <div className="relative w-full max-w-[450px] mt-16 mb-16">
             {/* Player Avatars */}
             <div className="absolute -top-16 left-0">
+              {/* Top-Left: Red */}
               <PlayerAvatar 
-                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'green') || players[2]) : players[2]} 
-                isActive={turn === 'green'} 
-                diceValue={diceValue} 
-                isRolling={isRolling} 
-                onRoll={rollDice} 
-                isLocalPlayer={mode === 'OFFLINE' ? !players[2].isBot : myColor === 'green'}
-              />
-            </div>
-            <div className="absolute -top-16 right-0">
-              <PlayerAvatar 
-                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow') || players[1]) : players[1]} 
-                isActive={turn === 'yellow'} 
-                diceValue={diceValue} 
-                isRolling={isRolling} 
-                onRoll={rollDice} 
-                isLocalPlayer={mode === 'OFFLINE' ? !players[1].isBot : myColor === 'yellow'}
-              />
-            </div>
-            <div className="absolute -bottom-16 left-0">
-              <PlayerAvatar 
-                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red') || players[0]) : players[0]} 
+                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red') || players[0]) : (players.find(p => p.color === 'red') || players[0])} 
                 isActive={turn === 'red'} 
                 diceValue={diceValue} 
                 isRolling={isRolling} 
                 onRoll={rollDice} 
-                isLocalPlayer={mode === 'OFFLINE' ? !players[0].isBot : myColor === 'red'}
+                isLocalPlayer={true}
               />
             </div>
+            <div className="absolute -top-16 right-0">
+              {/* Top-Right: Green */}
+              {(mode === 'ONLINE_GAME' || activeColors.includes('green')) && (
+                <PlayerAvatar 
+                  player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'green') || players[1]) : (players.find(p => p.color === 'green') || players[1])} 
+                  isActive={turn === 'green'} 
+                  diceValue={diceValue} 
+                  isRolling={isRolling} 
+                  onRoll={rollDice} 
+                  isLocalPlayer={true}
+                />
+              )}
+            </div>
+            <div className="absolute -bottom-16 left-0">
+              {/* Bottom-Left: Blue */}
+              {(mode === 'ONLINE_GAME' || activeColors.includes('blue')) && (
+                <PlayerAvatar 
+                  player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'blue') || players[3]) : (players.find(p => p.color === 'blue') || players[3])} 
+                  isActive={turn === 'blue'} 
+                  diceValue={diceValue} 
+                  isRolling={isRolling} 
+                  onRoll={rollDice} 
+                  isLocalPlayer={true}
+                />
+              )}
+            </div>
             <div className="absolute -bottom-16 right-0">
-              <PlayerAvatar 
-                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'blue') || players[3]) : players[3]} 
-                isActive={turn === 'blue'} 
-                diceValue={diceValue} 
-                isRolling={isRolling} 
-                onRoll={rollDice} 
-                isLocalPlayer={mode === 'OFFLINE' ? !players[3].isBot : myColor === 'blue'}
-              />
+              {/* Bottom-Right: Yellow */}
+              {(mode === 'ONLINE_GAME' || activeColors.includes('yellow')) && (
+                <PlayerAvatar 
+                  player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow') || players[2]) : (players.find(p => p.color === 'yellow') || players[2])} 
+                  isActive={turn === 'yellow'} 
+                  diceValue={diceValue} 
+                  isRolling={isRolling} 
+                  onRoll={rollDice} 
+                  isLocalPlayer={true}
+                />
+              )}
             </div>
 
             <div className="ludo-container">
               {/* Name Plates */}
               <div className="player-plate top-0 left-0 -translate-y-full">
-                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red')?.name || 'Waiting...') : 'Player 1'}
+                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red')?.name || 'Waiting...') : (players.find(p => p.color === 'red')?.name || '')}
               </div>
               <div className="player-plate top-0 right-0 -translate-y-full">
-                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow')?.name || 'Waiting...') : 'Player 3'}
+                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'green')?.name || 'Waiting...') : (players.find(p => p.color === 'green')?.name || '')}
+              </div>
+              <div className="player-plate bottom-0 left-0 translate-y-full">
+                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'blue')?.name || 'Waiting...') : (players.find(p => p.color === 'blue')?.name || '')}
+              </div>
+              <div className="player-plate bottom-0 right-0 translate-y-full">
+                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow')?.name || 'Waiting...') : (players.find(p => p.color === 'yellow')?.name || '')}
               </div>
               
               <div className="ludo-board">
