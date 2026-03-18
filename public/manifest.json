@@ -1,0 +1,20 @@
+{
+  "short_name": "EternalChase",
+  "name": "Eternal Chase: Love Runner",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/heart/192/192",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://picsum.photos/seed/heart/512/512",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#e94560",
+  "background_color": "#1a1a2e"
+}
