@@ -9,13 +9,91 @@
 body {
   margin: 0;
   padding: 0;
-  overflow: hidden;
-  background-color: #000;
-  color: #fff;
+  background-color: #f0f2f5;
+  color: #1a1a1a;
   font-family: var(--font-sans);
+  user-select: none;
 }
 
-canvas {
-  display: block;
-  touch-action: none;
+.ludo-board {
+  aspect-ratio: 1 / 1;
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  grid-template-rows: repeat(15, 1fr);
+  gap: 1px;
+  background-color: #333;
+  border: 4px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.ludo-cell {
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.piece {
+  width: 70%;
+  height: 70%;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  z-index: 10;
+}
+
+.piece:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+
+.piece.active {
+  animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+  from { transform: scale(1); box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+  to { transform: scale(1.15); box-shadow: 0 0 15px currentColor; }
+}
+
+.dice-container {
+  perspective: 1000px;
+}
+
+.dice {
+  width: 60px;
+  height: 60px;
+  background: white;
+  border-radius: 12px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 8px;
+  gap: 4px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  cursor: pointer;
+  transition: transform 0.5s;
+}
+
+.dice.rolling {
+  animation: roll 0.5s infinite;
+}
+
+@keyframes roll {
+  0% { transform: rotateX(0) rotateY(0); }
+  25% { transform: rotateX(90deg) rotateY(45deg); }
+  50% { transform: rotateX(180deg) rotateY(90deg); }
+  75% { transform: rotateX(270deg) rotateY(135deg); }
+  100% { transform: rotateX(360deg) rotateY(180deg); }
+}
+
+.dot {
+  background: #333;
+  border-radius: 50%;
+  width: 100%;
+  height: 100%;
 }
