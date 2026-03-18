@@ -3,9 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Users, User, Dice5, RotateCcw, Home, Trophy, Share2, Copy, Check, MessageSquare, Smile, Home as HomeIcon, ArrowLeft } from 'lucide-react';
+import { 
+  Users, 
+  User, 
+  Dice5, 
+  RotateCcw, 
+  Home, 
+  Trophy, 
+  Share2, 
+  Copy, 
+  Check, 
+  MessageSquare, 
+  Smile, 
+  Home as HomeIcon, 
+  ArrowLeft,
+  Volume2,
+  VolumeX,
+  Music,
+  Music2
+} from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -15,6 +33,15 @@ function cn(...inputs: ClassValue[]) {
 }
 
 // --- Constants ---
+const SOUNDS = {
+  DICE: 'https://assets.mixkit.co/sfx/preview/mixkit-dice-roll-on-wooden-table-2759.mp3',
+  MOVE: 'https://assets.mixkit.co/sfx/preview/mixkit-interface-click-1126.mp3',
+  CAPTURE: 'https://assets.mixkit.co/sfx/preview/mixkit-boxing-punch-2051.mp3',
+  FINISH: 'https://assets.mixkit.co/sfx/preview/mixkit-winning-chime-2064.mp3',
+  WIN: 'https://assets.mixkit.co/sfx/preview/mixkit-clapping-hands-crowd-applause-527.mp3',
+  BGM: 'https://assets.mixkit.co/music/preview/mixkit-game-show-suspense-944.mp3'
+};
+
 const COLORS = ['red', 'green', 'yellow', 'blue'] as const;
 type Color = typeof COLORS[number];
 
@@ -124,6 +151,36 @@ export default function App() {
   const [isRolling, setIsRolling] = useState(false);
   const [canRoll, setCanRoll] = useState(true);
   const [winner, setWinner] = useState<Color | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [musicEnabled, setMusicEnabled] = useState(false);
+  const bgmRef = useRef<HTMLAudioElement | null>(null);
+
+  // --- Sound Effects ---
+  const playSound = useCallback((soundUrl: string) => {
+    if (!soundEnabled) return;
+    const audio = new Audio(soundUrl);
+    audio.volume = 0.5;
+    audio.play().catch(() => {});
+  }, [soundEnabled]);
+
+  // --- Music Management ---
+  useEffect(() => {
+    if (!bgmRef.current) {
+      bgmRef.current = new Audio(SOUNDS.BGM);
+      bgmRef.current.loop = true;
+      bgmRef.current.volume = 0.2;
+    }
+
+    if (musicEnabled && mode !== 'MENU') {
+      bgmRef.current.play().catch(() => {});
+    } else {
+      bgmRef.current.pause();
+    }
+
+    return () => {
+      bgmRef.current?.pause();
+    };
+  }, [musicEnabled, mode]);
   const [copied, setCopied] = useState(false);
   const [lastRollTime, setLastRollTime] = useState(0);
   
@@ -229,6 +286,7 @@ export default function App() {
     setLastRollTime(Date.now());
     setIsRolling(true);
     setCanRoll(false);
+    playSound(SOUNDS.DICE);
 
     setTimeout(() => {
       const newValue = Math.floor(Math.random() * 6) + 1;
@@ -286,6 +344,8 @@ export default function App() {
       const pieceIndex = prevPieces.findIndex(p => p.id === pieceId && p.color === color);
       if (pieceIndex === -1) return prevPieces;
       
+      playSound(SOUNDS.MOVE);
+      
       const piece = prevPieces[pieceIndex];
       const newPieces = [...prevPieces];
       let newPos = piece.position === -1 ? 0 : piece.position + roll;
@@ -293,7 +353,11 @@ export default function App() {
       let captured = false;
       if (newPos === 57) {
         newPieces[pieceIndex] = { ...piece, position: newPos, isFinished: true };
-        if (newPieces.filter(p => p.color === color && p.isFinished).length === 4) setWinner(color);
+        playSound(SOUNDS.FINISH);
+        if (newPieces.filter(p => p.color === color && p.isFinished).length === 4) {
+          setWinner(color);
+          playSound(SOUNDS.WIN);
+        }
       } else {
         newPieces[pieceIndex] = { ...piece, position: newPos };
         
@@ -307,6 +371,7 @@ export default function App() {
                 if (otherCoords && otherCoords[0] === coords[0] && otherCoords[1] === coords[1]) {
                   newPieces[idx] = { ...p, position: -1 };
                   captured = true;
+                  playSound(SOUNDS.CAPTURE);
                 }
               }
             });
@@ -570,8 +635,24 @@ export default function App() {
           </div>
 
           <div className="flex flex-col gap-4 w-64">
-            <button onClick={() => setMode('OFFLINE_SETUP')} className="bg-white text-slate-950 py-4 rounded-full font-bold text-lg hover:bg-slate-200 transition-all hover:scale-105 active:scale-95 shadow-xl">LOCAL PLAY</button>
-            <button onClick={() => setMode('ONLINE_LOBBY')} className="bg-slate-800 text-white py-4 rounded-full font-bold text-lg hover:bg-slate-700 transition-all hover:scale-105 active:scale-95 border border-white/10">ONLINE MULTIPLAYER</button>
+            <button onClick={() => { playSound(SOUNDS.MOVE); setMode('OFFLINE_SETUP'); }} className="bg-white text-slate-950 py-4 rounded-full font-bold text-lg hover:bg-slate-200 transition-all hover:scale-105 active:scale-95 shadow-xl">LOCAL PLAY</button>
+            <button onClick={() => { playSound(SOUNDS.MOVE); setMode('ONLINE_LOBBY'); }} className="bg-slate-800 text-white py-4 rounded-full font-bold text-lg hover:bg-slate-700 transition-all hover:scale-105 active:scale-95 border border-white/10">ONLINE MULTIPLAYER</button>
+          </div>
+
+          {/* Sound Controls */}
+          <div className="flex gap-4 mt-8">
+            <button 
+              onClick={() => setSoundEnabled(!soundEnabled)} 
+              className="p-3 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors"
+            >
+              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+            </button>
+            <button 
+              onClick={() => setMusicEnabled(!musicEnabled)} 
+              className="p-3 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white transition-colors"
+            >
+              {musicEnabled ? <Music className="w-5 h-5" /> : <Music2 className="w-5 h-5" />}
+            </button>
           </div>
         </motion.div>
       ) : mode === 'OFFLINE_SETUP' ? (
@@ -586,7 +667,7 @@ export default function App() {
               {[2, 3, 4].map(count => (
                 <button 
                   key={count} 
-                  onClick={() => setOfflinePlayerCount(count as 2 | 3 | 4)}
+                  onClick={() => { playSound(SOUNDS.MOVE); setOfflinePlayerCount(count as 2 | 3 | 4); }}
                   className={cn(
                     "w-16 h-16 rounded-2xl font-black text-xl transition-all border-2",
                     offlinePlayerCount === count 
@@ -621,13 +702,13 @@ export default function App() {
             </div>
 
             <button 
-              onClick={startOfflineGame}
+              onClick={() => { playSound(SOUNDS.MOVE); startOfflineGame(); }}
               className="w-full bg-white text-slate-950 py-5 rounded-2xl font-black text-xl hover:bg-slate-200 transition-all active:scale-95 mt-4"
             >
               START BATTLE
             </button>
             
-            <button onClick={() => setMode('MENU')} className="w-full text-slate-500 font-bold py-2 hover:text-white transition-colors">BACK TO MENU</button>
+            <button onClick={() => { playSound(SOUNDS.MOVE); setMode('MENU'); }} className="w-full text-slate-500 font-bold py-2 hover:text-white transition-colors">BACK TO MENU</button>
           </div>
         </motion.div>
       ) : mode === 'ONLINE_LOBBY' ? (
@@ -652,7 +733,7 @@ export default function App() {
               onChange={(e) => setRoomId(e.target.value)}
               className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-6 py-4 text-white placeholder:text-slate-600 focus:outline-none focus:border-white/30 transition-colors"
             />
-            <button onClick={joinOnlineRoom} className="w-full bg-white text-slate-950 py-5 rounded-2xl font-black text-xl hover:bg-slate-200 transition-all active:scale-95 mt-4">JOIN / CREATE ROOM</button>
+            <button onClick={() => { playSound(SOUNDS.MOVE); joinOnlineRoom(); }} className="w-full bg-white text-slate-950 py-5 rounded-2xl font-black text-xl hover:bg-slate-200 transition-all active:scale-95 mt-4">JOIN / CREATE ROOM</button>
           </div>
 
           {onlinePlayers.length > 0 && (
@@ -671,7 +752,7 @@ export default function App() {
               <div className="mt-8">
                 {onlinePlayers.length >= 2 ? (
                   onlinePlayers[0].id === socketRef.current?.id ? (
-                    <button onClick={startOnlineGame} className="w-full bg-emerald-500 text-white py-5 rounded-2xl font-black text-xl hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">START BATTLE</button>
+                    <button onClick={() => { playSound(SOUNDS.MOVE); startOnlineGame(); }} className="w-full bg-emerald-500 text-white py-5 rounded-2xl font-black text-xl hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_0_20px_rgba(16,185,129,0.3)]">START BATTLE</button>
                   ) : (
                     <div className="bg-slate-900/50 border border-white/10 p-5 rounded-2xl text-slate-500 font-bold text-center animate-pulse uppercase tracking-widest text-sm">Waiting for host...</div>
                   )
@@ -682,7 +763,7 @@ export default function App() {
             </div>
           )}
           
-          <button onClick={() => setMode('MENU')} className="w-full text-slate-500 font-bold py-8 hover:text-white transition-colors">BACK TO MENU</button>
+          <button onClick={() => { playSound(SOUNDS.MOVE); setMode('MENU'); }} className="w-full text-slate-500 font-bold py-8 hover:text-white transition-colors">BACK TO MENU</button>
         </motion.div>
       ) : (
         <div className="flex flex-col items-center gap-8 w-full max-w-4xl">
@@ -696,6 +777,7 @@ export default function App() {
             {/* Exit Button */}
             <button 
               onClick={() => {
+                playSound(SOUNDS.MOVE);
                 if (mode === 'ONLINE_GAME') socketRef.current?.disconnect();
                 setMode('MENU');
               }} 
@@ -721,7 +803,7 @@ export default function App() {
               <Trophy className="w-24 h-24 text-yellow-500 mx-auto mb-6 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
               <h2 className="text-5xl font-black mb-2 uppercase tracking-tighter text-white">{winner} WINS!</h2>
               <p className="text-slate-400 font-medium mb-8">Victory is yours, champion.</p>
-              <button onClick={() => { setWinner(null); setMode('MENU'); }} className="bg-white text-slate-950 px-12 py-4 rounded-full font-bold text-lg hover:bg-slate-200 transition-colors">PLAY AGAIN</button>
+              <button onClick={() => { playSound(SOUNDS.MOVE); setWinner(null); setMode('MENU'); }} className="bg-white text-slate-950 px-12 py-4 rounded-full font-bold text-lg hover:bg-slate-200 transition-colors">PLAY AGAIN</button>
             </motion.div>
           </motion.div>
         )}
