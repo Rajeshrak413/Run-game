@@ -119,46 +119,16 @@ const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll }: { play
 export default function App() {
   const [isMobile, setIsMobile] = useState(true);
   const [mode, setMode] = useState<'MENU' | 'OFFLINE' | 'ONLINE_LOBBY' | 'ONLINE_GAME'>('MENU');
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  if (!isMobile) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-24 h-24 bg-red-500 rounded-3xl flex items-center justify-center mb-8 shadow-2xl shadow-red-500/20">
-          <Dice5 className="w-14 h-14 text-white" />
-        </div>
-        <h1 className="text-3xl font-black text-white mb-4 tracking-tight">MOBILE ONLY</h1>
-        <p className="text-slate-400 max-w-xs leading-relaxed">
-          Ludo Royale is optimized for mobile devices. Please open this link on your smartphone to play.
-        </p>
-        <div className="mt-10 p-4 bg-slate-800 rounded-2xl border border-slate-700">
-          <img 
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}`} 
-            alt="QR Code" 
-            className="w-32 h-32 rounded-lg"
-          />
-          <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest font-bold">Scan to play on mobile</p>
-        </div>
-      </div>
-    );
-  }
-
   const [roomId, setRoomId] = useState('');
-  const [playerName, setPlayerName] = useState('Player');
+  const [playerName, setPlayerName] = useState('Player' + Math.floor(Math.random() * 1000));
   const [players, setPlayers] = useState<Player[]>([
-    { id: '1', name: 'Player553', color: 'red', isBot: false, coins: 1000, avatar: 'https://picsum.photos/seed/p1/100' },
-    { id: '2', name: 'Nnewanga', color: 'yellow', isBot: true, coins: 11000, avatar: 'https://picsum.photos/seed/p2/100' },
-    { id: '3', name: 'Bot 1', color: 'green', isBot: true, coins: 500, avatar: 'https://picsum.photos/seed/p3/100' },
-    { id: '4', name: 'Bot 2', color: 'blue', isBot: true, coins: 750, avatar: 'https://picsum.photos/seed/p4/100' },
+    { id: '1', name: 'Player 1', color: 'red', isBot: false, coins: 1000, avatar: 'https://picsum.photos/seed/p1/100' },
+    { id: '2', name: 'Player 2', color: 'green', isBot: false, coins: 1000, avatar: 'https://picsum.photos/seed/p2/100' },
+    { id: '3', name: 'Player 3', color: 'yellow', isBot: false, coins: 1000, avatar: 'https://picsum.photos/seed/p3/100' },
+    { id: '4', name: 'Player 4', color: 'blue', isBot: false, coins: 1000, avatar: 'https://picsum.photos/seed/p4/100' },
   ]);
+  const [onlinePlayers, setOnlinePlayers] = useState<any[]>([]);
+  const [myColor, setMyColor] = useState<Color | null>(null);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [turn, setTurn] = useState<Color>('red');
   const [diceValue, setDiceValue] = useState(6);
@@ -185,6 +155,8 @@ export default function App() {
 
   const rollDice = () => {
     if (!canRoll) return;
+    if (mode === 'ONLINE_GAME' && turn !== myColor) return;
+
     setIsRolling(true);
     setCanRoll(false);
 
@@ -193,6 +165,10 @@ export default function App() {
       setDiceValue(newValue);
       setIsRolling(false);
       
+      if (mode === 'ONLINE_GAME') {
+        socketRef.current?.emit('game-action', roomId, { type: 'ROLL', value: newValue, turn });
+      }
+
       const possibleMoves = pieces.filter(p => p.color === turn && canMove(p, newValue));
       if (possibleMoves.length === 0) {
         setTimeout(() => nextTurn(), 1000);
@@ -203,7 +179,8 @@ export default function App() {
   const nextTurn = () => {
     const currentIndex = COLORS.indexOf(turn);
     const nextIndex = (currentIndex + 1) % 4;
-    setTurn(COLORS[nextIndex]);
+    const nextColor = COLORS[nextIndex];
+    setTurn(nextColor);
     setCanRoll(true);
   };
 
@@ -216,24 +193,78 @@ export default function App() {
 
   const movePiece = (pieceId: number, color: Color) => {
     if (isRolling || turn !== color || canRoll) return;
+    if (mode === 'ONLINE_GAME' && turn !== myColor) return;
     
     const pieceIndex = pieces.findIndex(p => p.id === pieceId && p.color === color);
     const piece = pieces[pieceIndex];
     if (!canMove(piece, diceValue)) return;
 
+    if (mode === 'ONLINE_GAME') {
+      socketRef.current?.emit('game-action', roomId, { type: 'MOVE', pieceId, color, diceValue });
+    }
+
+    executeMove(pieceId, color, diceValue);
+  };
+
+  const executeMove = (pieceId: number, color: Color, roll: number) => {
+    const pieceIndex = pieces.findIndex(p => p.id === pieceId && p.color === color);
+    const piece = pieces[pieceIndex];
     const newPieces = [...pieces];
-    let newPos = piece.position === -1 ? 0 : piece.position + diceValue;
+    let newPos = piece.position === -1 ? 0 : piece.position + roll;
 
     if (newPos === 58) {
       newPieces[pieceIndex] = { ...piece, position: newPos, isFinished: true };
       if (newPieces.filter(p => p.color === color && p.isFinished).length === 4) setWinner(color);
     } else {
       newPieces[pieceIndex] = { ...piece, position: newPos };
-      // Capture logic would go here
     }
 
     setPieces(newPieces);
-    if (diceValue !== 6) nextTurn(); else setCanRoll(true);
+    if (roll !== 6) nextTurn(); else setCanRoll(true);
+  };
+
+  const joinOnlineRoom = () => {
+    if (!roomId || !playerName) return;
+    socketRef.current = io();
+    socketRef.current.emit('join-room', roomId, playerName);
+
+    socketRef.current.on('player-joined', (roomPlayers: any[]) => {
+      setOnlinePlayers(roomPlayers);
+      const me = roomPlayers.find(p => p.id === socketRef.current?.id);
+      if (me) setMyColor(me.color);
+    });
+
+    socketRef.current.on('player-left', (roomPlayers: any[]) => {
+      setOnlinePlayers(roomPlayers);
+    });
+
+    socketRef.current.on('game-update', (action: any) => {
+      if (action.type === 'ROLL') {
+        setIsRolling(true);
+        setTimeout(() => {
+          setDiceValue(action.value);
+          setIsRolling(false);
+          // Check if the current turn player has any moves
+          const possibleMoves = pieces.filter(p => p.color === action.turn && canMove(p, action.value));
+          if (possibleMoves.length === 0) {
+            setTimeout(() => nextTurn(), 1000);
+          }
+        }, 600);
+      } else if (action.type === 'MOVE') {
+        executeMove(action.pieceId, action.color, action.diceValue);
+      } else if (action.type === 'START_GAME') {
+        setMode('ONLINE_GAME');
+        initPieces();
+      }
+    });
+
+    setMode('ONLINE_LOBBY');
+  };
+
+  const startOnlineGame = () => {
+    socketRef.current?.emit('game-action', roomId, { type: 'START_GAME' });
+    setMode('ONLINE_GAME');
+    initPieces();
   };
 
   const renderGrid = () => {
@@ -317,37 +348,135 @@ export default function App() {
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-10 text-center shadow-2xl max-w-sm w-full">
           <Dice5 className="w-16 h-16 text-red-500 mx-auto mb-6" />
           <h1 className="text-4xl font-black mb-8 tracking-tighter text-slate-900">LUDO ROYALE</h1>
-          <button onClick={() => { setMode('OFFLINE'); initPieces(); }} className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-red-200 active:scale-95 transition-all">PLAY NOW</button>
+          <div className="space-y-4">
+            <button onClick={() => { setMode('OFFLINE'); initPieces(); }} className="w-full bg-red-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-red-200 active:scale-95 transition-all">LOCAL PLAY</button>
+            <button onClick={() => setMode('ONLINE_LOBBY')} className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 active:scale-95 transition-all">ONLINE PLAY</button>
+          </div>
+        </motion.div>
+      ) : mode === 'ONLINE_LOBBY' ? (
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-3xl p-8 text-center shadow-2xl max-w-sm w-full">
+          <h2 className="text-2xl font-black mb-6 text-slate-900">ONLINE LOBBY</h2>
+          <div className="space-y-4 mb-8">
+            <input 
+              type="text" 
+              placeholder="Your Name" 
+              value={playerName} 
+              onChange={(e) => setPlayerName(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all text-slate-800"
+            />
+            <input 
+              type="text" 
+              placeholder="Room ID" 
+              value={roomId} 
+              onChange={(e) => setRoomId(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border-2 border-slate-100 focus:border-blue-500 outline-none transition-all text-slate-800"
+            />
+            <button onClick={joinOnlineRoom} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">JOIN / CREATE ROOM</button>
+          </div>
+
+          {onlinePlayers.length > 0 && (
+            <div className="text-left mb-6">
+              <p className="text-sm font-bold text-slate-500 mb-2">PLAYERS IN ROOM ({onlinePlayers.length}/4)</p>
+              <div className="space-y-2">
+                {onlinePlayers.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-3 h-3 rounded-full", `bg-${p.color}-500`)} />
+                      <span className="font-bold text-slate-700">{p.name}</span>
+                    </div>
+                    {p.id === socketRef.current?.id && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase">You</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {onlinePlayers.length >= 2 ? (
+            onlinePlayers[0].id === socketRef.current?.id ? (
+              <button onClick={startOnlineGame} className="w-full bg-green-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg shadow-green-200 active:scale-95 transition-all">START GAME</button>
+            ) : (
+              <div className="bg-slate-100 p-4 rounded-2xl text-slate-500 font-bold animate-pulse">WAITING FOR HOST TO START...</div>
+            )
+          ) : (
+            <div className="bg-slate-100 p-4 rounded-2xl text-slate-500 font-bold">WAITING FOR MORE PLAYERS...</div>
+          )}
+          
+          <button onClick={() => setMode('MENU')} className="mt-4 text-slate-400 font-bold flex items-center gap-2 mx-auto"><ArrowLeft className="w-4 h-4" /> Back to Menu</button>
         </motion.div>
       ) : (
         <div className="flex flex-col items-center gap-8 w-full max-w-4xl">
           {/* Top Bar */}
           <div className="w-full max-w-[600px] flex justify-between items-center px-4">
-            <button onClick={() => setMode('MENU')} className="bg-blue-500 p-2 rounded-lg shadow-md"><ArrowLeft className="w-6 h-6 text-white" /></button>
+            <button onClick={() => {
+              if (mode === 'ONLINE_GAME') socketRef.current?.disconnect();
+              setMode('MENU');
+            }} className="bg-blue-500 p-2 rounded-lg shadow-md"><ArrowLeft className="w-6 h-6 text-white" /></button>
             <div className="bg-blue-900/80 border-2 border-yellow-500 rounded-xl px-8 py-1 flex items-center gap-4 shadow-lg">
-              <span className="text-yellow-400 font-black italic text-xl">Quick</span>
-              <div className="bg-black/40 px-4 py-1 rounded-lg text-white font-bold text-sm">1000</div>
+              <span className="text-yellow-400 font-black italic text-xl">{mode === 'ONLINE_GAME' ? 'Online' : 'Local'}</span>
+              <div className="bg-black/40 px-4 py-1 rounded-lg text-white font-bold text-sm">{roomId || 'PASS & PLAY'}</div>
             </div>
             <div className="w-10" />
           </div>
 
           <div className="relative">
             {/* Player Avatars */}
-            <div className="absolute -top-20 -left-10"><PlayerAvatar player={players[2]} isActive={turn === 'green'} diceValue={diceValue} isRolling={isRolling} onRoll={rollDice} /></div>
-            <div className="absolute -top-20 -right-10"><PlayerAvatar player={players[1]} isActive={turn === 'yellow'} diceValue={diceValue} isRolling={isRolling} onRoll={rollDice} /></div>
-            <div className="absolute -bottom-20 -left-10"><PlayerAvatar player={players[0]} isActive={turn === 'red'} diceValue={diceValue} isRolling={isRolling} onRoll={rollDice} /></div>
-            <div className="absolute -bottom-20 -right-10"><PlayerAvatar player={players[3]} isActive={turn === 'blue'} diceValue={diceValue} isRolling={isRolling} onRoll={rollDice} /></div>
+            <div className="absolute -top-20 -left-10">
+              <PlayerAvatar 
+                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'green') || players[2]) : players[2]} 
+                isActive={turn === 'green'} 
+                diceValue={diceValue} 
+                isRolling={isRolling} 
+                onRoll={rollDice} 
+              />
+            </div>
+            <div className="absolute -top-20 -right-10">
+              <PlayerAvatar 
+                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow') || players[1]) : players[1]} 
+                isActive={turn === 'yellow'} 
+                diceValue={diceValue} 
+                isRolling={isRolling} 
+                onRoll={rollDice} 
+              />
+            </div>
+            <div className="absolute -bottom-20 -left-10">
+              <PlayerAvatar 
+                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red') || players[0]) : players[0]} 
+                isActive={turn === 'red'} 
+                diceValue={diceValue} 
+                isRolling={isRolling} 
+                onRoll={rollDice} 
+              />
+            </div>
+            <div className="absolute -bottom-20 -right-10">
+              <PlayerAvatar 
+                player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'blue') || players[3]) : players[3]} 
+                isActive={turn === 'blue'} 
+                diceValue={diceValue} 
+                isRolling={isRolling} 
+                onRoll={rollDice} 
+              />
+            </div>
 
             <div className="ludo-container">
               {/* Name Plates */}
-              <div className="player-plate top-0 left-0 -translate-y-full">Player553</div>
-              <div className="player-plate top-0 right-0 -translate-y-full">Nnewanga</div>
+              <div className="player-plate top-0 left-0 -translate-y-full">
+                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red')?.name || 'Waiting...') : 'Player 1'}
+              </div>
+              <div className="player-plate top-0 right-0 -translate-y-full">
+                {mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow')?.name || 'Waiting...') : 'Player 3'}
+              </div>
               
               <div className="ludo-board">
                 {renderGrid()}
               </div>
             </div>
           </div>
+
+          {mode === 'ONLINE_GAME' && myColor && (
+            <div className="mt-4 bg-white/10 backdrop-blur-sm px-6 py-2 rounded-full border border-white/20">
+              <p className="text-white font-bold">You are playing as <span className={cn("uppercase", `text-${myColor}-400`)}>{myColor}</span></p>
+            </div>
+          )}
         </div>
       )}
 

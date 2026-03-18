@@ -56,7 +56,18 @@ async function startServer() {
 
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.id);
-      // Clean up rooms if needed
+      
+      rooms.forEach((room, roomId) => {
+        const playerIndex = room.players.findIndex(p => p.id === socket.id);
+        if (playerIndex !== -1) {
+          room.players.splice(playerIndex, 1);
+          io.to(roomId).emit("player-left", room.players);
+          
+          if (room.players.length === 0) {
+            rooms.delete(roomId);
+          }
+        }
+      });
     });
   });
 
