@@ -121,21 +121,23 @@ const PlayerAvatar = ({ player, isActive, diceValue, isRolling, onRoll, isLocalP
         )}
       </div>
       
-      {isActive && (
-        <div className="flex items-center gap-2">
-          {player.color === 'blue' || player.color === 'yellow' ? (
-            <>
-              <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
-              <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[12px] border-r-white drop-shadow-sm" />
-            </>
-          ) : (
-            <>
-              <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[12px] border-l-white drop-shadow-sm" />
-              <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
-            </>
-          )}
-        </div>
-      )}
+      <div className="flex items-center gap-2 h-12 min-w-[80px] justify-center">
+        {isActive && (
+          <div className="flex items-center gap-2">
+            {player.color === 'blue' || player.color === 'yellow' ? (
+              <>
+                <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
+                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-r-[12px] border-r-white drop-shadow-sm" />
+              </>
+            ) : (
+              <>
+                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent border-l-[12px] border-l-white drop-shadow-sm" />
+                <Dice value={diceValue} rolling={isRolling} onClick={onRoll} disabled={!isActive || !isLocalPlayer} />
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -461,13 +463,13 @@ export default function App() {
               <div className="flex flex-wrap items-center justify-center gap-0.5 p-0.5">
                 {piecesOnCell.map(p => (
                   <motion.div 
-                    layoutId={`piece-${p.color}-${p.id}`}
                     key={`${p.color}-${p.id}`} 
                     onClick={() => movePiece(p.id, p.color)} 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
                     className={cn(
                       "piece", 
                       `bg-${p.color === 'yellow' ? 'yellow-400' : p.color + '-500'}`,
-                      piecesOnCell.length > 1 ? "w-4 h-4" : "w-6 h-6",
                       turn === p.color && !canRoll && canMove(p, diceValue) && "active"
                     )} 
                   />
@@ -557,9 +559,9 @@ export default function App() {
             <div className="w-10" />
           </div>
 
-          <div className="relative">
+          <div className="relative w-full max-w-[450px] mt-16 mb-16">
             {/* Player Avatars */}
-            <div className="absolute -top-20 -left-10">
+            <div className="absolute -top-16 left-0">
               <PlayerAvatar 
                 player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'green') || players[2]) : players[2]} 
                 isActive={turn === 'green'} 
@@ -569,7 +571,7 @@ export default function App() {
                 isLocalPlayer={mode === 'OFFLINE' ? !players[2].isBot : myColor === 'green'}
               />
             </div>
-            <div className="absolute -top-20 -right-10">
+            <div className="absolute -top-16 right-0">
               <PlayerAvatar 
                 player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'yellow') || players[1]) : players[1]} 
                 isActive={turn === 'yellow'} 
@@ -579,7 +581,7 @@ export default function App() {
                 isLocalPlayer={mode === 'OFFLINE' ? !players[1].isBot : myColor === 'yellow'}
               />
             </div>
-            <div className="absolute -bottom-20 -left-10">
+            <div className="absolute -bottom-16 left-0">
               <PlayerAvatar 
                 player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'red') || players[0]) : players[0]} 
                 isActive={turn === 'red'} 
@@ -589,7 +591,7 @@ export default function App() {
                 isLocalPlayer={mode === 'OFFLINE' ? !players[0].isBot : myColor === 'red'}
               />
             </div>
-            <div className="absolute -bottom-20 -right-10">
+            <div className="absolute -bottom-16 right-0">
               <PlayerAvatar 
                 player={mode === 'ONLINE_GAME' ? (onlinePlayers.find(p => p.color === 'blue') || players[3]) : players[3]} 
                 isActive={turn === 'blue'} 
