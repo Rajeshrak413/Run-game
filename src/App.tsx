@@ -455,11 +455,6 @@ export default function App() {
                     <div onClick={() => movePiece(p.id, 'red')} className={cn("piece bg-red-500", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
                   </div>
                 ))}
-                {isActive && canRoll && (
-                  <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
-                    <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
-                  </div>
-                )}
               </div>
             );
           }
@@ -483,11 +478,6 @@ export default function App() {
                         <div onClick={() => movePiece(p.id, 'green')} className={cn("piece bg-green-500", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
                       </div>
                     ))}
-                    {isActive && canRoll && (
-                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
-                        <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -513,11 +503,6 @@ export default function App() {
                         <div onClick={() => movePiece(p.id, 'blue')} className={cn("piece bg-blue-500", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
                       </div>
                     ))}
-                    {isActive && canRoll && (
-                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
-                        <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -543,11 +528,6 @@ export default function App() {
                         <div onClick={() => movePiece(p.id, 'yellow')} className={cn("piece bg-yellow-400", isActive && !canRoll && (diceValue === 6 || p.position !== -1) && "active")} />
                       </div>
                     ))}
-                    {isActive && canRoll && (
-                      <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-auto">
-                        <Dice value={diceValue} rolling={isRolling} onClick={rollDice} disabled={false} />
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -628,7 +608,7 @@ export default function App() {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center gap-12">
           <div className="text-center">
             <motion.div initial={{ y: -20 }} animate={{ y: 0 }} className="flex items-center justify-center mb-4">
-              <Trophy className="w-16 h-16 text-yellow-500 drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]" />
+              <Dice5 className="w-20 h-20 text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]" />
             </motion.div>
             <h1 className="text-7xl font-black tracking-tighter text-white uppercase italic">Ludo</h1>
             <p className="text-slate-500 font-medium tracking-widest uppercase text-xs mt-2">The Classic Reimagined</p>
@@ -772,6 +752,56 @@ export default function App() {
               <div className="ludo-board">
                 {renderGrid()}
               </div>
+            </div>
+            
+            {/* Dice and Turn Info (Outside Board) */}
+            <div className="mt-8 flex flex-col items-center gap-4 w-full">
+              <div className="flex items-center gap-6 bg-slate-900/50 border border-white/10 px-8 py-4 rounded-3xl backdrop-blur-md">
+                <div className="flex flex-col items-center gap-1">
+                  <div className={cn("w-4 h-4 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]", 
+                    turn === 'red' ? "bg-red-500 shadow-red-500/50" : 
+                    turn === 'green' ? "bg-green-500 shadow-green-500/50" : 
+                    turn === 'yellow' ? "bg-yellow-500 shadow-yellow-500/50" : 
+                    "bg-blue-500 shadow-blue-500/50"
+                  )} />
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Turn</span>
+                </div>
+
+                <div className="h-10 w-px bg-white/10 mx-2" />
+
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-xs font-black text-white uppercase tracking-tighter">
+                    {players.find(p => p.color === turn)?.name || turn}
+                  </span>
+                  <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Current Player</span>
+                </div>
+
+                <div className="h-10 w-px bg-white/10 mx-2" />
+
+                <div className="relative">
+                  <Dice 
+                    value={diceValue} 
+                    rolling={isRolling} 
+                    onClick={rollDice} 
+                    disabled={!canRoll || (mode === 'ONLINE_GAME' && turn !== myColor)} 
+                  />
+                  {canRoll && (!isRolling) && (mode !== 'ONLINE_GAME' || turn === myColor) && (
+                    <motion.div 
+                      animate={{ scale: [1, 1.2, 1] }} 
+                      transition={{ repeat: Infinity, duration: 1.5 }}
+                      className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full border-2 border-slate-900" 
+                    />
+                  )}
+                </div>
+              </div>
+
+              {mode === 'ONLINE_GAME' && myColor && (
+                <div className="bg-white/5 px-4 py-1.5 rounded-full border border-white/10">
+                  <p className="text-[10px] text-white/60 font-bold uppercase tracking-widest">
+                    You are <span className={cn(turn === myColor ? "text-white" : "text-slate-400")}>{myColor}</span>
+                  </p>
+                </div>
+              )}
             </div>
             
             {/* Exit Button */}
